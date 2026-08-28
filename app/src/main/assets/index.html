@@ -160,11 +160,25 @@
 
   function setState(patch){ for(var k in patch) state[k]=patch[k]; render(); }
 
-  function persist(){ state.saveMsg=saveStore({logs:state.logs,bodyWeight:state.bodyWeight})?"已保存到本机 ✓":"存储不可用"; render(); }
+  // 保存数据但不显示提示（仅在点击记录时用 flashSave 提示）
+  function persist(){ saveStore({logs:state.logs,bodyWeight:state.bodyWeight}); render(); }
+
+  var flashTimer=null;
+  // 只在点击「记录到今日」时显示「已保存」，5 秒后消失
+  function flashSave(){
+    state.saveMsg="已保存到本机 ✓";
+    render();
+    if(flashTimer) clearTimeout(flashTimer);
+    flashTimer=setTimeout(function(){
+      state.saveMsg="";
+      render();
+    },5000);
+  }
 
   function addLog(){
     state.logs=state.logs.concat([{ex:state.exId,date:todayStr(),sets:state.sets,reps:state.reps,weight:state.weight}]);
     persist();
+    flashSave();
   }
   function clearLogs(){
     document.getElementById("dlgMask").style.display="flex";

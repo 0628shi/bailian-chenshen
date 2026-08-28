@@ -1,0 +1,18 @@
+# Gradle / build
+.gradle/
+build/
+app/build/
+.kotlin/
+
+# Local config (machine-specific)
+local.properties
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Temp / OS
+.tmp/
+.DS_Store
+Thumbs.db

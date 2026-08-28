@@ -63,10 +63,27 @@
     </div>
   </div>
 </div>
+<!-- 自定义动作表单 -->
+<div id="exDlgMask" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.55);z-index:100;align-items:center;justify-content:center;">
+  <div style="background:#1c1f24;border-radius:12px;padding:18px;width:86%;max-width:340px;box-shadow:0 6px 24px rgba(0,0,0,0.4);">
+    <div style="font-weight:700;font-size:16px;margin-bottom:12px">🏋️ 自定义动作</div>
+    <label class="small" style="display:block;margin-bottom:4px">1. 选择部位分类</label>
+    <select id="exCatSel" style="width:100%;background:#121417;border:1px solid #2a2f37;color:#e6e8ec;border-radius:7px;padding:8px;font-size:14px;margin-bottom:10px"></select>
+    <label class="small" style="display:block;margin-bottom:4px">2. 选择器械</label>
+    <div id="gearRow" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px"></div>
+    <label class="small" style="display:block;margin-bottom:4px">3. 编辑动作名称</label>
+    <input id="exNameInput" type="text" maxlength="12" placeholder="例如：坐姿推胸" style="width:100%;background:#121417;border:1px solid #2a2f37;color:#e6e8ec;border-radius:7px;padding:8px;font-size:14px;margin-bottom:14px">
+    <div style="display:flex;gap:8px">
+      <button id="exCancel" style="flex:1;background:#2a2f37;border:none;color:#c3c7cd;padding:10px 0;border-radius:8px;font-size:14px;cursor:pointer">取消</button>
+      <button id="exOk" style="flex:1;background:linear-gradient(90deg,#3b82f6,#2563eb);border:none;color:#fff;padding:10px 0;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">保存动作</button>
+    </div>
+  </div>
+</div>
 <script>
 (function(){
   "use strict";
   var STORE_KEY = "bailian-chenshen-data";
+  var CUSTOM_KEY = "bailian-chenshen-custom";
   var CATS = ["胸","背","肩","腿","手臂"];
   var EXERCISES = [
     { id:"bench", name:"杠铃卧推", part:"胸部", cat:"胸", unit:"kg", gear:"🏋️ 杠铃", pose:"bench" },
@@ -86,6 +103,20 @@
     { id:"kettle", name:"壶铃摆动", part:"腿部/臀", cat:"腿", unit:"kg", gear:"🛎️ 壶铃", pose:"kettle" },
     { id:"curl", name:"杠铃弯举", part:"二头", cat:"手臂", unit:"kg", gear:"🏋️ 杠铃", pose:"curl" },
     { id:"pressdown", name:"绳索下压", part:"三头", cat:"手臂", unit:"kg", gear:"🔗 绳索", pose:"pressdown" }
+  ];
+  // ---- 自定义动作存储 ----
+  function loadCustom(){ try{ var r=localStorage.getItem(CUSTOM_KEY); return r?JSON.parse(r):[]; }catch(e){ return []; } }
+  function saveCustom(arr){ try{ localStorage.setItem(CUSTOM_KEY,JSON.stringify(arr)); }catch(e){} }
+  // 合并内置 + 自定义动作
+  function allExercises(){ return EXERCISES.concat(loadCustom()); }
+  // 器械选项
+  var GEARS = [
+    { key:"杠铃", icon:"🏋️" },
+    { key:"哑铃", icon:"💪" },
+    { key:"绳索", icon:"🔗" },
+    { key:"器械", icon:"⚙️" },
+    { key:"自重", icon:"👤" },
+    { key:"壶铃", icon:"🛎️" }
   ];
   var POSES = {
     stand:{lean:4,aL:[12,10],aR:[14,10],lL:[0,2],lR:[0,2]},
@@ -156,7 +187,7 @@
     weight:60, reps:8, sets:4, saveMsg:""
   };
   var appEl=document.getElementById("app");
-  var exEl=function(id){ return EXERCISES.find(function(e){return e.id===id;})||EXERCISES[0]; };
+  var exEl=function(id){ var a=allExercises(); return a.find(function(e){return e.id===id;})||a[0]; };
 
   function setState(patch){ for(var k in patch) state[k]=patch[k]; render(); }
 
@@ -191,7 +222,7 @@
     persist();
     hideDlg();
   }
-  function pickCat(c){ setState({cat:c, exId:(EXERCISES.find(function(e){return e.cat===c;})||EXERCISES[0]).id}); }
+  function pickCat(c){ setState({cat:c, exId:(allExercises().find(function(e){return e.cat===c;})||allExercises()[0]).id}); }
   function exerciseSeries(id){ return state.logs.filter(function(l){return l.ex===id;}).sort(function(a,b){return a.date<b.date?-1:1;}); }
   function totalVol(){ return state.logs.reduce(function(a,l){return a+l.sets*l.reps*(l.weight||0);},0); }
   function workoutDays(){ var w={}; state.logs.forEach(function(l){w[l.date]=1;}); return Object.keys(w).length; }
@@ -212,13 +243,15 @@
 
   // ---- 渲染 ----
   function exPickerHTML(){
-    var items=EXERCISES.filter(function(e){return e.cat===state.cat;});
+    var items=allExercises().filter(function(e){return e.cat===state.cat;});
     var opts=CATS.map(function(c){return '<option value="'+c+'"'+(c===state.cat?' selected':'')+'>▍ '+c+'</option>';}).join("");
     var cards=items.map(function(e){
       var on=e.id===state.exId?" on":"";
       return '<div class="exCard'+on+'" data-ex="'+e.id+'"><div class="svgBox">'+stickSVG(e.pose,on?"#ff8aa0":"#c3c7cd")+'</div><div><div class="nm">'+esc(e.name)+'</div><div class="meta">'+esc(e.part)+' · '+esc(e.gear)+'</div></div></div>';
     }).join("");
-    return '<label class="small">部位分类</label><select id="catSel">'+opts+'</select><div class="exGrid">'+cards+'</div>';
+    return '<label class="small">部位分类</label><select id="catSel">'+opts+'</select>'+
+      '<div class="exGrid">'+cards+'</div>'+
+      '<button class="btn" id="addExBtn" style="margin-top:8px;background:linear-gradient(90deg,#3b82f6,#2563eb);padding:8px 0;font-size:13px">＋ 自定义动作</button>';
   }
 
   function recordHTML(){
@@ -232,7 +265,7 @@
           var e=exEl(l.ex);
           return '<div class="logRow"><span class="nm">'+esc(e.name)+'</span><span class="meta">'+l.sets+'组 × '+l.reps+'次 · '+l.weight+(e.unit)+'</span><span class="vol">'+(l.sets*l.reps*l.weight).toFixed(0)+'</span></div>';
         }).join("");
-    return '<div class="card"><h2>选择动作（'+EXERCISES.length+' 个 · 下拉按部位筛选）</h2>'+exPickerHTML()+
+    return '<div class="card"><h2>选择动作（'+allExercises().length+' 个 · 下拉按部位筛选）</h2>'+exPickerHTML()+
       '<div class="inputs">'+
         '<div class="field"><label class="small">重量 ('+ex.unit+')</label><input type="number" id="inW" value="'+state.weight+'"></div>'+
         '<div class="field"><label class="small">次数</label><input type="number" id="inR" value="'+state.reps+'"></div>'+
@@ -282,6 +315,62 @@
       '<button class="btn" id="clearBtn" style="background:linear-gradient(90deg,#5a6472,#3c444f)">🗑 清除全部记录</button></div>';
   }
 
+  // ---- 自定义动作 ----
+  var gearSel = GEARS[0].key;
+  function openExDlg(){
+    // 填充部位下拉
+    var cs=document.getElementById("exCatSel");
+    cs.innerHTML=CATS.map(function(c){return '<option value="'+c+'">'+c+'</option>';}).join("");
+    cs.value=state.cat;
+    // 填充器械选择
+    var gr=document.getElementById("gearRow");
+    gr.innerHTML=GEARS.map(function(g){
+      return '<button class="gearBtn" data-gear="'+g.key+'" style="border:1px solid #2a2f37;background:#16181d;color:#c3c7cd;padding:6px 10px;border-radius:7px;font-size:13px;cursor:pointer">'+g.icon+' '+g.key+'</button>';
+    }).join("");
+    gearSel=GEARS[0].key;
+    markGear();
+    document.getElementById("exNameInput").value="";
+    document.getElementById("exDlgMask").style.display="flex";
+  }
+  function markGear(){
+    var bs=document.querySelectorAll(".gearBtn");
+    bs.forEach(function(b){
+      if(b.dataset.gear===gearSel){ b.style.borderColor="#3b82f6"; b.style.color="#93c5fd"; b.style.background="rgba(59,130,246,0.12)"; }
+      else { b.style.borderColor="#2a2f37"; b.style.color="#c3c7cd"; b.style.background="#16181d"; }
+    });
+  }
+  function hideExDlg(){ document.getElementById("exDlgMask").style.display="none"; }
+  function saveCustomEx(){
+    var name=document.getElementById("exNameInput").value.trim();
+    var cat=document.getElementById("exCatSel").value;
+    if(!name){
+      var inp=document.getElementById("exNameInput");
+      inp.style.borderColor="#ff5c7a";
+      inp.placeholder="请输入动作名称";
+      inp.focus();
+      return;
+    }
+    var g=GEARS.find(function(x){return x.key===gearSel;})||GEARS[0];
+    // 自重动作单位用"次"，其余用 kg
+    var unit=(g.key==="自重")?"次":"kg";
+    var list=loadCustom();
+    list.push({
+      id:"custom-"+Date.now(),
+      name:name,
+      part:cat,
+      cat:cat,
+      unit:unit,
+      gear:g.icon+" "+g.key,
+      pose:"stand"
+    });
+    saveCustom(list);
+    state.exId=list[list.length-1].id;
+    state.cat=cat;
+    hideExDlg();
+    render();
+    flashSave();
+  }
+
   function render(){
     var tabs='<div class="tabs">'+
       [["record","记录"],["trend","趋势"],["stats","统计"]].map(function(t){
@@ -309,7 +398,19 @@
     if(bw) bw.addEventListener("change",function(){ state.bodyWeight=Number(bw.value)||0; persist(); });
     var clr=document.getElementById("clearBtn");
     if(clr) clr.addEventListener("click",clearLogs);
+    var addEx=document.getElementById("addExBtn");
+    if(addEx) addEx.addEventListener("click",openExDlg);
   }
+
+  // 自定义动作弹层按钮只绑定一次
+  document.getElementById("exCancel").addEventListener("click",hideExDlg);
+  document.getElementById("exOk").addEventListener("click",saveCustomEx);
+  document.getElementById("exDlgMask").addEventListener("click",function(ev){ if(ev.target.id==="exDlgMask") hideExDlg(); });
+  // 器械按钮通过事件委托（弹层内动态生成）
+  document.getElementById("gearRow").addEventListener("click",function(ev){
+    var b=ev.target.closest(".gearBtn");
+    if(b){ gearSel=b.dataset.gear; markGear(); }
+  });
 
   // 确认对话框按钮只绑定一次
   document.getElementById("dlgCancel").addEventListener("click",hideDlg);

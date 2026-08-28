@@ -37,15 +37,15 @@
   .statGrid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px; }
   .statTile .lbl { font-size:12px; color:#8a8f98; }
   .statTile .val { font-size:20px; font-weight:700; margin-top:4px; }
-  .bars { display:flex; align-items:flex-end; gap:6px; height:150px; padding-top:20px; padding-bottom:4px; }
-  .barCol { flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; }
+  .bars { display:flex; align-items:flex-end; gap:6px; height:150px; padding-top:20px; padding-bottom:4px; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  .barCol { flex:0 0 58px; display:flex; flex-direction:column; align-items:center; gap:4px; }
   .barCol .val { font-size:10px; color:#8a8f98; }
   .barCol .bar { width:46px; background:linear-gradient(180deg,#38bdf8,#0ea5e9); border-radius:5px 5px 0 0; }
   .barCol .lbl { font-size:10px; color:#8a8f98; }
   .gain { font-size:40px; font-weight:800; color:#ff5c7a; line-height:1; }
   .empty { color:#8a8f98; padding:20px 0; text-align:center; font-size:13px; }
-  .volBars { display:flex; align-items:flex-end; gap:8px; height:150px; padding-top:6px; }
-  .volCol { flex:1; display:flex; flex-direction:column; align-items:center; gap:4px; }
+  .volBars { display:flex; align-items:flex-end; gap:8px; height:150px; padding-top:6px; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  .volCol { flex:0 0 58px; display:flex; flex-direction:column; align-items:center; gap:4px; }
   .volCol .val { font-size:10px; color:#8a8f98; }
   .volCol .bar { width:70%; max-width:42px; background:linear-gradient(180deg,#ff5c7a,#ff2e63); border-radius:5px 5px 0 0; }
   .volCol .lbl { font-size:10px; color:#8a8f98; }
@@ -98,32 +98,6 @@
     kettle:{lean:20,aL:[0,6],aR:[0,6],lL:[52,8],lR:[52,8]}
   };
 
-  var seedLogs = [
-    {ex:"bench",date:"2025-04-02",sets:3,reps:10,weight:40},
-    {ex:"bench",date:"2025-04-09",sets:3,reps:10,weight:45},
-    {ex:"bench",date:"2025-04-16",sets:4,reps:10,weight:45},
-    {ex:"bench",date:"2025-04-23",sets:4,reps:8,weight:50},
-    {ex:"bench",date:"2025-04-30",sets:4,reps:8,weight:52.5},
-    {ex:"bench",date:"2025-05-07",sets:4,reps:6,weight:55},
-    {ex:"bench",date:"2025-05-14",sets:5,reps:5,weight:57.5},
-    {ex:"bench",date:"2025-05-21",sets:5,reps:5,weight:60},
-    {ex:"squat",date:"2025-04-03",sets:4,reps:10,weight:60},
-    {ex:"squat",date:"2025-04-10",sets:4,reps:10,weight:65},
-    {ex:"squat",date:"2025-04-17",sets:4,reps:8,weight:70},
-    {ex:"squat",date:"2025-04-24",sets:4,reps:8,weight:72.5},
-    {ex:"squat",date:"2025-05-01",sets:5,reps:6,weight:75},
-    {ex:"squat",date:"2025-05-08",sets:5,reps:6,weight:77.5},
-    {ex:"squat",date:"2025-05-15",sets:5,reps:5,weight:80},
-    {ex:"squat",date:"2025-05-22",sets:5,reps:5,weight:82.5},
-    {ex:"dl",date:"2025-04-05",sets:3,reps:8,weight:80},
-    {ex:"dl",date:"2025-04-19",sets:3,reps:8,weight:85},
-    {ex:"dl",date:"2025-05-03",sets:3,reps:6,weight:90},
-    {ex:"dl",date:"2025-05-17",sets:3,reps:6,weight:95},
-    {ex:"ohp",date:"2025-05-06",sets:4,reps:8,weight:35},
-    {ex:"row",date:"2025-05-06",sets:4,reps:10,weight:40},
-    {ex:"curl",date:"2025-05-06",sets:3,reps:12,weight:15}
-  ];
-
   // ---- 工具 ----
   function loadStore(){ try{ var r=localStorage.getItem(STORE_KEY); return r?JSON.parse(r):null; }catch(e){ return null; } }
   function saveStore(o){ try{ localStorage.setItem(STORE_KEY,JSON.stringify(o)); return true; }catch(e){ return false; } }
@@ -166,7 +140,7 @@
   // ---- 状态 ----
   var saved=loadStore();
   var state={
-    logs:(saved&&Array.isArray(saved.logs)&&saved.logs.length)?saved.logs:seedLogs,
+    logs:(saved&&Array.isArray(saved.logs))?saved.logs:[],
     bodyWeight:(saved&&typeof saved.bodyWeight==="number")?saved.bodyWeight:70,
     tab:"record", cat:"胸", exId:"bench",
     weight:60, reps:8, sets:4, saveMsg:""
@@ -180,6 +154,11 @@
 
   function addLog(){
     state.logs=state.logs.concat([{ex:state.exId,date:todayStr(),sets:state.sets,reps:state.reps,weight:state.weight}]);
+    persist();
+  }
+  function clearLogs(){
+    if(!confirm("确定要清除全部训练记录吗？此操作不可恢复。")) return;
+    state.logs=[];
     persist();
   }
   function pickCat(c){ setState({cat:c, exId:(EXERCISES.find(function(e){return e.cat===c;})||EXERCISES[0]).id}); }
@@ -269,7 +248,8 @@
       '<div style="font-size:12px;color:#8a8f98;margin-bottom:10px">基于卧推/深蹲/硬拉的强度进步，按经验模型估算（仅供参考，非医学建议）。</div>'+
       '<div style="display:flex;align-items:flex-end;gap:8px"><span class="gain">'+g+'</span><span style="color:#8a8f98;margin-bottom:6px"> kg 理论瘦体重增长</span></div>'+
       '<div style="margin-top:12px;font-size:12px;color:#8a8f98">卧推 +'+progPct(exerciseSeries("bench")).toFixed(0)+'% · 深蹲 +'+progPct(exerciseSeries("squat")).toFixed(0)+'% · 硬拉 +'+progPct(exerciseSeries("dl")).toFixed(0)+'%</div>'+
-      '<div class="inputs" style="margin-top:14px"><div class="field"><label class="small">当前体重 (kg)</label><input type="number" id="inBW" value="'+state.bodyWeight+'"></div><div style="font-size:12px;color:#8a8f98;align-self:flex-end;padding-bottom:6px">相对体重 +'+rel+'%</div></div></div>';
+      '<div class="inputs" style="margin-top:14px"><div class="field"><label class="small">当前体重 (kg)</label><input type="number" id="inBW" value="'+state.bodyWeight+'"></div><div style="font-size:12px;color:#8a8f98;align-self:flex-end;padding-bottom:6px">相对体重 +'+rel+'%</div></div>'+
+      '<button class="btn" id="clearBtn" style="background:linear-gradient(90deg,#5a6472,#3c444f)">🗑 清除全部记录</button></div>';
   }
 
   function render(){
@@ -297,6 +277,8 @@
     if(add) add.addEventListener("click",addLog);
     var bw=document.getElementById("inBW");
     if(bw) bw.addEventListener("change",function(){ state.bodyWeight=Number(bw.value)||0; persist(); });
+    var clr=document.getElementById("clearBtn");
+    if(clr) clr.addEventListener("click",clearLogs);
   }
 
   render();

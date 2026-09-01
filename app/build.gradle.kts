@@ -11,7 +11,7 @@ android {
         applicationId = "com.example.fitness"
         minSdk = 26
         targetSdk = 34
-        versionCode = 5
+        versionCode = 6
         // 版本号自动跟随 versionCode：V1.00 -> V1.01 -> V1.02 ...（每次更新 +0.01）
         versionName = "1." + String.format("%02d", (versionCode ?: 1) - 1)
     }

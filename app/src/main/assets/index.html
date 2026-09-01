@@ -183,16 +183,19 @@
   var state={
     logs:(saved&&Array.isArray(saved.logs))?saved.logs:[],
     bodyWeight:(saved&&typeof saved.bodyWeight==="number")?saved.bodyWeight:70,
+    extraWeight:(saved&&typeof saved.extraWeight==="number")?saved.extraWeight:0,
     tab:"record", cat:"胸", exId:"bench",
     weight:60, reps:8, sets:4, saveMsg:""
   };
   var appEl=document.getElementById("app");
   var exEl=function(id){ var a=allExercises(); return a.find(function(e){return e.id===id;})||a[0]; };
+  // 是否自重动作（自重动作单位是"次"）
+  function isBodyweight(ex){ return ex && ex.unit==="次"; }
 
   function setState(patch){ for(var k in patch) state[k]=patch[k]; render(); }
 
   // 保存数据但不显示提示（仅在点击记录时用 flashSave 提示）
-  function persist(){ saveStore({logs:state.logs,bodyWeight:state.bodyWeight}); render(); }
+  function persist(){ saveStore({logs:state.logs,bodyWeight:state.bodyWeight,extraWeight:state.extraWeight}); render(); }
 
   var flashTimer=null;
   // 只在点击「记录到今日」时显示「已保存」，5 秒后消失
@@ -207,7 +210,10 @@
   }
 
   function addLog(){
-    state.logs=state.logs.concat([{ex:state.exId,date:todayStr(),sets:state.sets,reps:state.reps,weight:state.weight}]);
+    var ex=exEl(state.exId);
+    // 自重动作记录重量 = 体重 + 负重；非自重用输入重量
+    var w = isBodyweight(ex) ? (state.bodyWeight + state.extraWeight) : state.weight;
+    state.logs=state.logs.concat([{ex:state.exId,date:todayStr(),sets:state.sets,reps:state.reps,weight:w}]);
     persist();
     flashSave();
   }
@@ -259,19 +265,37 @@
     var todayLogs=state.logs.filter(function(l){return l.date===today;});
     var tv=todayLogs.reduce(function(a,l){return a+l.sets*l.reps*(l.weight||0);},0);
     var ex=exEl(state.exId);
+    var bw=isBodyweight(ex);
+    // 实际记录重量：自重=体重+负重；非自重=输入重量
+    var effWeight = bw ? (state.bodyWeight + state.extraWeight) : state.weight;
     var rows = todayLogs.length===0
       ? '<div class="empty">今天还没有记录，去上面添加一组吧。</div>'
       : todayLogs.slice().reverse().map(function(l){
           var e=exEl(l.ex);
           return '<div class="logRow"><span class="nm">'+esc(e.name)+'</span><span class="meta">'+l.sets+'组 × '+l.reps+'次 · '+l.weight+(e.unit)+'</span><span class="vol">'+(l.sets*l.reps*l.weight).toFixed(0)+'</span></div>';
         }).join("");
-    return '<div class="card"><h2>选择动作（'+allExercises().length+' 个 · 下拉按部位筛选）</h2>'+exPickerHTML()+
-      '<div class="inputs">'+
+    var inputs;
+    if(bw){
+      // 自重训练：体重 + 负重
+      inputs='<div class="inputs">'+
+        '<div class="field"><label class="small">体重 (kg)</label><input type="number" id="inBW2" value="'+state.bodyWeight+'"></div>'+
+        '<div class="field"><label class="small">负重 (kg)</label><input type="number" id="inExtra" value="'+state.extraWeight+'"></div>'+
+        '<div class="field"><label class="small">次数</label><input type="number" id="inR" value="'+state.reps+'"></div>'+
+        '<div class="field"><label class="small">组数</label><input type="number" id="inS" value="'+state.sets+'"></div>'+
+      '</div>'+
+      '<div style="margin-top:8px;font-size:12px;color:#8a8f98" id="bwHint">自重训练：记录重量 = 体重 '+state.bodyWeight+' kg + 负重 '+state.extraWeight+' kg = <b style="color:#ff5c7a">'+effWeight+' kg</b></div>'+
+      '<div style="margin-top:4px;font-size:12px;color:#8a8f98" id="bwVolHint">组容量 = '+effWeight+' × '+state.reps+' = <b style="color:#ff5c7a">'+(effWeight*state.reps).toFixed(0)+'</b></div>';
+    } else {
+      // 负重训练
+      inputs='<div class="inputs">'+
         '<div class="field"><label class="small">重量 ('+ex.unit+')</label><input type="number" id="inW" value="'+state.weight+'"></div>'+
         '<div class="field"><label class="small">次数</label><input type="number" id="inR" value="'+state.reps+'"></div>'+
         '<div class="field"><label class="small">组数</label><input type="number" id="inS" value="'+state.sets+'"></div>'+
         '<div class="field"><label class="small">组容量</label><input id="inVol" style="color:#ff5c7a;font-weight:600" value="'+(state.weight*state.reps).toFixed(0)+'" readonly></div>'+
-      '</div>'+
+      '</div>';
+    }
+    return '<div class="card"><h2>选择动作（'+allExercises().length+' 个 · 下拉按部位筛选）</h2>'+exPickerHTML()+
+      inputs+
       '<button class="btn" id="addBtn">＋ 记录到今日（'+esc(ex.name)+'）</button></div>'+
       '<div class="card"><div class="row"><h2 style="margin:0">今日训练 · '+today+'</h2><span id="todayVol" style="color:#ff5c7a;font-weight:600;font-size:12px">容量 '+tv.toFixed(0)+'</span></div>'+rows+'</div>';
   }
@@ -391,17 +415,35 @@
     // 重量/次数/组数：input 时只更新内存和组容量显示，不重建 DOM（避免键盘收起）
     var inW=document.getElementById("inW"),inR=document.getElementById("inR"),inS=document.getElementById("inS");
     function updVol(){ var v=document.getElementById("inVol"); if(v) v.value=(state.weight*state.reps).toFixed(0); }
+    // 自重训练提示实时刷新
+    function updBwHints(){
+      var eff=state.bodyWeight+state.extraWeight;
+      var h1=document.getElementById("bwHint");
+      if(h1) h1.innerHTML='自重训练：记录重量 = 体重 <b>'+state.bodyWeight+'</b> kg + 负重 <b>'+state.extraWeight+'</b> kg = <b style="color:#ff5c7a">'+eff+' kg</b>';
+      var h2=document.getElementById("bwVolHint");
+      if(h2) h2.innerHTML='组容量 = '+eff+' × '+state.reps+' = <b style="color:#ff5c7a">'+(eff*state.reps).toFixed(0)+'</b>';
+    }
     if(inW){
       inW.addEventListener("input",function(){ state.weight=Number(inW.value)||0; updVol(); });
       inW.addEventListener("change",function(){ state.weight=Number(inW.value)||0; render(); });
     }
     if(inR){
-      inR.addEventListener("input",function(){ state.reps=Number(inR.value)||0; updVol(); });
+      inR.addEventListener("input",function(){ state.reps=Number(inR.value)||0; updVol(); updBwHints(); });
       inR.addEventListener("change",function(){ state.reps=Number(inR.value)||0; render(); });
     }
     if(inS){
       inS.addEventListener("input",function(){ state.sets=Number(inS.value)||0; });
       inS.addEventListener("change",function(){ state.sets=Number(inS.value)||0; render(); });
+    }
+    // 自重体重/负重输入
+    var inBW2=document.getElementById("inBW2"),inExtra=document.getElementById("inExtra");
+    if(inBW2){
+      inBW2.addEventListener("input",function(){ state.bodyWeight=Number(inBW2.value)||0; updBwHints(); });
+      inBW2.addEventListener("change",function(){ state.bodyWeight=Number(inBW2.value)||0; persist(); });
+    }
+    if(inExtra){
+      inExtra.addEventListener("input",function(){ state.extraWeight=Number(inExtra.value)||0; updBwHints(); });
+      inExtra.addEventListener("change",function(){ state.extraWeight=Number(inExtra.value)||0; persist(); });
     }
     var add=document.getElementById("addBtn");
     if(add) add.addEventListener("click",addLog);

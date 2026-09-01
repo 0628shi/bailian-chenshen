@@ -270,10 +270,10 @@
         '<div class="field"><label class="small">重量 ('+ex.unit+')</label><input type="number" id="inW" value="'+state.weight+'"></div>'+
         '<div class="field"><label class="small">次数</label><input type="number" id="inR" value="'+state.reps+'"></div>'+
         '<div class="field"><label class="small">组数</label><input type="number" id="inS" value="'+state.sets+'"></div>'+
-        '<div class="field"><label class="small">组容量</label><input style="color:#ff5c7a;font-weight:600" value="'+(state.weight*state.reps).toFixed(0)+'" readonly></div>'+
+        '<div class="field"><label class="small">组容量</label><input id="inVol" style="color:#ff5c7a;font-weight:600" value="'+(state.weight*state.reps).toFixed(0)+'" readonly></div>'+
       '</div>'+
       '<button class="btn" id="addBtn">＋ 记录到今日（'+esc(ex.name)+'）</button></div>'+
-      '<div class="card"><div class="row"><h2 style="margin:0">今日训练 · '+today+'</h2><span style="color:#ff5c7a;font-weight:600;font-size:12px">容量 '+tv.toFixed(0)+'</span></div>'+rows+'</div>';
+      '<div class="card"><div class="row"><h2 style="margin:0">今日训练 · '+today+'</h2><span id="todayVol" style="color:#ff5c7a;font-weight:600;font-size:12px">容量 '+tv.toFixed(0)+'</span></div>'+rows+'</div>';
   }
 
   function trendHTML(){
@@ -388,10 +388,21 @@
     if(cat) cat.addEventListener("change",function(){ pickCat(cat.value); });
     var cards=document.querySelectorAll(".exCard");
     cards.forEach(function(c){ c.addEventListener("click",function(){ setState({exId:c.dataset.ex}); }); });
+    // 重量/次数/组数：input 时只更新内存和组容量显示，不重建 DOM（避免键盘收起）
     var inW=document.getElementById("inW"),inR=document.getElementById("inR"),inS=document.getElementById("inS");
-    if(inW) inW.addEventListener("input",function(){ setState({weight:Number(inW.value)||0}); });
-    if(inR) inR.addEventListener("input",function(){ setState({reps:Number(inR.value)||0}); });
-    if(inS) inS.addEventListener("input",function(){ setState({sets:Number(inS.value)||0}); });
+    function updVol(){ var v=document.getElementById("inVol"); if(v) v.value=(state.weight*state.reps).toFixed(0); }
+    if(inW){
+      inW.addEventListener("input",function(){ state.weight=Number(inW.value)||0; updVol(); });
+      inW.addEventListener("change",function(){ state.weight=Number(inW.value)||0; render(); });
+    }
+    if(inR){
+      inR.addEventListener("input",function(){ state.reps=Number(inR.value)||0; updVol(); });
+      inR.addEventListener("change",function(){ state.reps=Number(inR.value)||0; render(); });
+    }
+    if(inS){
+      inS.addEventListener("input",function(){ state.sets=Number(inS.value)||0; });
+      inS.addEventListener("change",function(){ state.sets=Number(inS.value)||0; render(); });
+    }
     var add=document.getElementById("addBtn");
     if(add) add.addEventListener("click",addLog);
     var bw=document.getElementById("inBW");
